@@ -1,38 +1,204 @@
 .App {
-  text-align: center;
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 24px;
+  text-align: left;
+  font-family: Arial, Helvetica, sans-serif;
 }
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
+.controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
+.controls label {
+  font-weight: 600;
+  font-size: 13px;
+  color: #4e5154;
 }
 
-.App-header {
-  background-color: #282c34;
-  min-height: 100vh;
+.controls input,
+.controls select {
+  margin-top: 4px;
+  width: 100%;
+  height: 36px;
+  border: 1px solid #ccd2d8;
+  border-radius: 6px;
+  padding: 8px;
+}
+
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.checkbox input {
+  width: auto;
+  margin: 0;
+}
+
+.accordion {
+  border: 1px solid #d5d8de;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.accordionHeader {
+  width: 100%;
+  height: 56px;
+  border: 0;
+  border-radius: 8px 8px 0 0;
+  padding: 0 16px;
+  background: #f8f9fa;
+  color: #6f7276;
+  font-size: 20px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+}
+
+.accordionHeader:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.accordionBody {
+  padding: 16px;
+}
+
+.toolbarActions {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.toolbarActions button {
+  height: 34px;
+  border: 1px solid #c3c8cf;
+  border-radius: 6px;
+  background: #ffffff;
+  padding: 0 12px;
+  cursor: pointer;
+}
+
+.toolbarActions button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.gridSelector {
+  border: 1px solid #e0e3e8;
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 12px;
+}
+
+.gridSelector p,
+.gridSelector span {
+  font-size: 13px;
+}
+
+.gridCells {
+  margin-top: 8px;
+  display: grid;
+  grid-template-columns: repeat(10, 20px);
+  gap: 4px;
+}
+
+.gridCell {
+  width: 20px;
+  height: 20px;
+  border: 1px solid #bfc5cd;
+  border-radius: 2px;
+  background: #fff;
+  cursor: pointer;
+  padding: 0;
+}
+
+.gridCell.active {
+  background: #1976d2;
+  border-color: #1976d2;
+}
+
+.hiddenInput {
+  display: none;
+}
+
+.demo-wrapper {
+  border: 1px solid #d5d8de;
+  border-radius: 8px;
+}
+
+.demo-editor {
+  min-height: 220px;
+  padding: 0 10px;
+}
+
+.inlineBlocksWrapper {
+  margin-top: 10px;
+  padding: 10px;
+  min-height: 40px;
+}
+
+.inlineCustomBlocks {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
+  gap: 12px;
 }
 
-.App-link {
-  color: #61dafb;
+.inlineCustomBlock {
+  border: 1px dashed #d0d4da;
+  border-radius: 8px;
+  padding: 10px;
 }
 
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+.saveButton {
+  margin-top: 14px;
+  height: 36px;
+  border: 0;
+  border-radius: 6px;
+  background: #1976d2;
+  color: #fff;
+  padding: 0 14px;
+  cursor: pointer;
+}
+
+.panel {
+  border: 1px solid #d5d8de;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  padding: 14px 16px;
+}
+
+.panel h2 {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+
+.panel pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.inlineCustomBlock .gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.inlineCustomBlock .grid-item,
+.inlineCustomBlock .gallery-item {
+  margin: 0;
+}
+
+.inlineCustomBlock img {
+  width: 100%;
+  border-radius: 6px;
+  display: block;
 }
