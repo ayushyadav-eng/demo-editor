@@ -1,13 +1,20 @@
 import './App.css';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AtomicBlockUtils, EditorState } from 'draft-js';
 import { convertToRaw } from 'draft-js';
 import draftToHtml from 'draftjs-to-html';
 import { Editor } from 'react-draft-wysiwyg';
 import 'react-draft-wysiwyg/dist/react-draft-wysiwyg.css';
+import { uploadImage } from './api/uploader';
+import { GalleryBlock, GridBlock, ImageBlock } from './components/editor/AtomicBlocks';
+import {
+  InsertGalleryButton,
+  InsertGridButton,
+  UploadImageButton,
+} from './components/editor/ToolbarButtons';
+import { customEntityTransform } from './utils/editorTransforms';
 
 const BODY_API_TYPES = new Set(['sport', 'game', 'team', 'person', 'venue']);
-const GRID_SIZE_LIMIT = 10;
 
 const extractPlainText = (html) =>
   html
@@ -30,80 +37,12 @@ const computeReadTime = (html, wpm = 130) => {
   return Math.round(minutes * 10) / 10;
 };
 
-const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-const runUploadLifecycle = async (file, onStageChange) => {
-  const uploadId = `upload-${Date.now()}`;
-  const safeFileName = file.name.replace(/\s+/g, '-').toLowerCase();
-  const key = `${Date.now()}-${safeFileName}`;
-
-  onStageChange('init');
-  await wait(180);
-
-  onStageChange('signedUrls');
-  await wait(180);
-
-  onStageChange('upload');
-  await wait(200);
-
-  onStageChange('complete');
-  await wait(160);
-
-  onStageChange('persistImageMetadata');
-  await wait(160);
-
-  const url = `https://cdn.mock-viewlift.dev/content/images/${key}`;
-  return {
-    default: url,
-    metadata: {
-      uploadId,
-      key,
-      filename: file.name,
-      size: file.size,
-      mimeType: file.type,
-    },
-  };
-};
-
-const buildGalleryHtml = (urls) => {
-  const items = urls
-    .map((src) => `<figure class="gallery-item"><img src="${src}" alt="" /></figure>`)
-    .join('');
-  return `<div class="gallery">${items}</div>`;
-};
-
-const buildGridHtml = (urls, columns) => {
-  const items = urls
-    .map((src) => `<figure class="grid-item"><img src="${src}" alt="" /></figure>`)
-    .join('');
-  return `<div class="grid" style="display:grid;gap:12px;grid-template-columns:repeat(${columns}, 1fr)">${items}</div>`;
-};
-
 function SaveLogPanel({ title, data }) {
   return (
     <section className="panel">
       <h2>{title}</h2>
       <pre>{JSON.stringify(data, null, 2)}</pre>
     </section>
-  );
-}
-
-function InlineCustomBlocks({ blocks }) {
-  if (!blocks.length) {
-    return null;
-  }
-
-  return (
-    <div className="inlineCustomBlocks">
-      {blocks.map((block, index) => (
-        <div
-          // Index is acceptable for this local POC list because items are append-only.
-          key={`${block.type}-${index}`}
-          className="inlineCustomBlock"
-          dangerouslySetInnerHTML={{ __html: block.html }}
-        />
-      ))}
-    </div>
   );
 }
 
@@ -118,16 +57,13 @@ function App() {
     articleContent: '',
     readTime: 0,
   });
-  const [customBlocks, setCustomBlocks] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState('idle');
   const [uploadTrace, setUploadTrace] = useState([]);
   const [gridSelection, setGridSelection] = useState({ rows: 1, columns: 1 });
 
-  const imageInputRef = useRef(null);
-  const galleryInputRef = useRef(null);
-  const gridInputRef = useRef(null);
   const blobUrlsRef = useRef([]);
+
   useEffect(() => {
     return () => {
       blobUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
@@ -135,14 +71,13 @@ function App() {
     };
   }, []);
 
-
   const editorHtml = useMemo(
-    () => draftToHtml(convertToRaw(editorState.getCurrentContent())),
+    () =>
+      draftToHtml(convertToRaw(editorState.getCurrentContent()), undefined, false, customEntityTransform),
     [editorState]
   );
-  const composedHtml = `${editorHtml}${customBlocks.map((block) => block.html).join('')}`;
-  const normalizedText = extractPlainText(composedHtml);
-  const readTime = computeReadTime(composedHtml);
+  const normalizedText = extractPlainText(editorHtml);
+  const readTime = computeReadTime(editorHtml);
 
   const saveData = (id, type, key, payload) => {
     const saveEntry = {
@@ -166,7 +101,7 @@ function App() {
     ]);
   };
 
-  const uploadFiles = async (files) => {
+  const uploadFilesWithPreview = async (files) => {
     const urls = [];
     setIsUploading(true);
     setUploadStatus('in-progress');
@@ -174,12 +109,14 @@ function App() {
 
     try {
       for (const file of files) {
-        await runUploadLifecycle(file, (stage) => {
-          appendTrace(`${file.name}: ${stage}`);
+        const cdnUrl = await uploadImage(file, {
+          setUploadStatus: () => {},
+          onTrace: (stage) => appendTrace(`${file.name}: ${stage}`),
         });
         const blobUrl = URL.createObjectURL(file);
         blobUrlsRef.current.push(blobUrl);
         urls.push(blobUrl);
+        appendTrace(`${file.name}: uploaded -> ${cdnUrl}`);
         appendTrace(`${file.name}: local-preview-url-created`);
       }
 
@@ -195,70 +132,106 @@ function App() {
     }
   };
 
+  const insertAtomicBlock = useCallback((entityType, entityData) => {
+    setEditorState((currentState) => {
+      const currentContent = currentState.getCurrentContent();
+      const contentWithEntity = currentContent.createEntity(entityType, 'IMMUTABLE', entityData);
+      const entityKey = contentWithEntity.getLastCreatedEntityKey();
+      const nextState = EditorState.set(currentState, { currentContent: contentWithEntity });
+      return AtomicBlockUtils.insertAtomicBlock(nextState, entityKey, ' ');
+    });
+  }, []);
+
   const insertImageIntoEditor = (src) => {
-    const currentContent = editorState.getCurrentContent();
-    const contentWithEntity = currentContent.createEntity('IMAGE', 'IMMUTABLE', { src });
-    const entityKey = contentWithEntity.getLastCreatedEntityKey();
-    const nextState = EditorState.set(editorState, { currentContent: contentWithEntity });
-    setEditorState(AtomicBlockUtils.insertAtomicBlock(nextState, entityKey, ' '));
+    insertAtomicBlock('IMAGE', { src });
   };
 
-  const handleImageUpload = async (event) => {
-    const file = event.target.files?.[0];
-    event.target.value = '';
+  const insertGalleryBlock = (urls) => {
+    insertAtomicBlock('GALLERY', { urls });
+  };
+
+  const insertGridBlock = (urls, columns) => {
+    insertAtomicBlock('GRID', { urls, columns });
+  };
+
+  const handleImageFiles = async (files) => {
+    const file = files[0];
     if (!file) {
       return;
     }
 
-    const [url] = await uploadFiles([file]);
+    const [url] = await uploadFilesWithPreview([file]);
     if (url) {
       insertImageIntoEditor(url);
     }
   };
 
-  const handleGalleryInsert = async (event) => {
-    const files = Array.from(event.target.files || []);
-    event.target.value = '';
+  const handleGalleryFiles = async (files) => {
     if (!files.length) {
       return;
     }
 
-    const urls = await uploadFiles(files);
+    const urls = await uploadFilesWithPreview(files);
     if (!urls.length) {
       return;
     }
 
-    setCustomBlocks((current) => [
-      ...current,
-      {
-        type: 'gallery',
-        html: buildGalleryHtml(urls),
-      },
-    ]);
+    insertGalleryBlock(urls);
   };
 
-  const handleGridInsert = async (event) => {
-    const files = Array.from(event.target.files || []);
-    event.target.value = '';
+  const handleGridFiles = async (files) => {
     if (!files.length) {
       return;
     }
 
-    const urls = await uploadFiles(files);
+    const urls = await uploadFilesWithPreview(files);
     if (!urls.length) {
       return;
     }
 
     const totalCells = gridSelection.rows * gridSelection.columns;
     const gridUrls = urls.slice(0, totalCells);
+    insertGridBlock(gridUrls, gridSelection.columns);
+  };
 
-    setCustomBlocks((current) => [
-      ...current,
-      {
-        type: 'grid',
-        html: buildGridHtml(gridUrls, gridSelection.columns),
-      },
-    ]);
+  const blockRendererFn = (contentBlock) => {
+    if (contentBlock.getType() !== 'atomic') {
+      return null;
+    }
+
+    const entityKey = contentBlock.getEntityAt(0);
+    if (!entityKey) {
+      return null;
+    }
+
+    const entity = editorState.getCurrentContent().getEntity(entityKey);
+    const type = entity.getType();
+
+    if (type === 'IMAGE') {
+      return {
+        component: ImageBlock,
+        editable: false,
+        props: {},
+      };
+    }
+
+    if (type === 'GALLERY') {
+      return {
+        component: GalleryBlock,
+        editable: false,
+        props: {},
+      };
+    }
+
+    if (type === 'GRID') {
+      return {
+        component: GridBlock,
+        editable: false,
+        props: {},
+      };
+    }
+
+    return null;
   };
 
   const editorDataSave = (html) => {
@@ -289,9 +262,11 @@ function App() {
     }
   };
 
+  const toolbarDisabled = readOnly || isUploading;
+
   return (
     <div className="App">
-      <h1>CKEditor Parity POC</h1>
+      <h1>RTE</h1>
 
       <div className="controls">
         <label htmlFor="content-id">Content ID</label>
@@ -340,77 +315,34 @@ function App() {
         </button>
         {expanded && (
           <div className="accordionBody">
-            <div className="toolbarActions">
-              <button type="button" onClick={() => imageInputRef.current?.click()} disabled={readOnly || isUploading}>
-                Upload Image
-              </button>
-              <button type="button" onClick={() => galleryInputRef.current?.click()} disabled={readOnly || isUploading}>
-                Insert Gallery
-              </button>
-              <button type="button" onClick={() => gridInputRef.current?.click()} disabled={readOnly || isUploading}>
-                Insert Grid
-              </button>
-            </div>
-
-            <div className="gridSelector">
-              <span>Grid selection (10x10 parity):</span>
-              <div className="gridCells">
-                {Array.from({ length: GRID_SIZE_LIMIT }, (_, rowIndex) =>
-                  Array.from({ length: GRID_SIZE_LIMIT }, (_, columnIndex) => {
-                    const isActive =
-                      rowIndex < gridSelection.rows && columnIndex < gridSelection.columns;
-                    return (
-                      <button
-                        key={`${rowIndex}-${columnIndex}`}
-                        type="button"
-                        className={`gridCell ${isActive ? 'active' : ''}`}
-                        onClick={() => setGridSelection({ rows: rowIndex + 1, columns: columnIndex + 1 })}
-                        disabled={readOnly}
-                        aria-label={`Select ${rowIndex + 1} by ${columnIndex + 1}`}
-                      />
-                    );
-                  })
-                )}
-              </div>
-              <p>
-                Selected: {gridSelection.rows} x {gridSelection.columns}
-              </p>
-            </div>
-
             <Editor
               readOnly={readOnly}
               editorState={editorState}
               onEditorStateChange={setEditorState}
               wrapperClassName="demo-wrapper"
               editorClassName="demo-editor"
+              blockRendererFn={blockRendererFn}
+              toolbarCustomButtons={[
+                <UploadImageButton
+                  key="upload-image"
+                  disabled={toolbarDisabled}
+                  onSelectFiles={handleImageFiles}
+                />,
+                <InsertGalleryButton
+                  key="insert-gallery"
+                  disabled={toolbarDisabled}
+                  onSelectFiles={handleGalleryFiles}
+                />,
+                <InsertGridButton
+                  key="insert-grid"
+                  disabled={toolbarDisabled}
+                  gridSelection={gridSelection}
+                  setGridSelection={setGridSelection}
+                  onSelectFiles={handleGridFiles}
+                />,
+              ]}
             />
-            <div className="demo-wrapper inlineBlocksWrapper">
-              <InlineCustomBlocks blocks={customBlocks} />
-            </div>
-            <input
-              ref={imageInputRef}
-              type="file"
-              accept="image/*"
-              className="hiddenInput"
-              onChange={handleImageUpload}
-            />
-            <input
-              ref={galleryInputRef}
-              type="file"
-              accept="image/*"
-              multiple
-              className="hiddenInput"
-              onChange={handleGalleryInsert}
-            />
-            <input
-              ref={gridInputRef}
-              type="file"
-              accept="image/*"
-              multiple
-              className="hiddenInput"
-              onChange={handleGridInsert}
-            />
-            <button type="button" className="saveButton" onClick={() => editorDataSave(composedHtml)}>
+            <button type="button" className="saveButton" onClick={() => editorDataSave(editorHtml)}>
               Save Content
             </button>
           </div>
