@@ -1,52 +1,27 @@
+/**
+ * DEPRECATED: These components are no longer used with Editor.js
+ * Editor.js handles block rendering natively through custom tools
+ * Kept here for reference only
+ */
+
 const GRID_SIZE_LIMIT = 10;
 
+// Legacy: Image block component - no longer used
 export function ImageBlock({ block, contentState }) {
-  const entity = contentState.getEntity(block.getEntityAt(0));
-  const { src = '' } = entity.getData();
-
-  return (
-    <figure className="image" contentEditable={false}>
-      <img src={src} alt="" />
-    </figure>
-  );
+  console.warn('ImageBlock is deprecated. Editor.js handles images natively.');
+  return null;
 }
 
+// Legacy: Gallery block component - no longer used
 export function GalleryBlock({ block, contentState }) {
-  const entity = contentState.getEntity(block.getEntityAt(0));
-  const { urls = [] } = entity.getData();
-
-  return (
-    <div className="gallery" contentEditable={false}>
-      {urls.map((src, index) => (
-        <figure className="gallery-item" key={`${src}-${index}`}>
-          <img src={src} alt="" />
-        </figure>
-      ))}
-    </div>
-  );
+  console.warn('GalleryBlock is deprecated. Editor.js handles galleries natively.');
+  return null;
 }
 
+// Legacy: Grid block component - no longer used
 export function GridBlock({ block, contentState }) {
-  const entity = contentState.getEntity(block.getEntityAt(0));
-  const { urls = [], columns = 3 } = entity.getData();
-
-  return (
-    <div
-      className="grid"
-      style={{
-        display: 'grid',
-        gap: '10px',
-        gridTemplateColumns: `repeat(${columns}, 1fr)`,
-      }}
-      contentEditable={false}
-    >
-      {urls.map((src, index) => (
-        <figure className="grid-item" key={`${src}-${index}`}>
-          <img src={src} alt="" />
-        </figure>
-      ))}
-    </div>
-  );
+  console.warn('GridBlock is deprecated. Editor.js handles grids natively.');
+  return null;
 }
 
 export { GRID_SIZE_LIMIT };

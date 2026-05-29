@@ -1,18 +1,8 @@
 import './App.css';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AtomicBlockUtils, EditorState } from 'draft-js';
-import { convertToRaw } from 'draft-js';
-import draftToHtml from 'draftjs-to-html';
-import { Editor } from 'react-draft-wysiwyg';
-import 'react-draft-wysiwyg/dist/react-draft-wysiwyg.css';
 import { uploadImage } from './api/uploader';
-import { GalleryBlock, GridBlock, ImageBlock } from './components/editor/AtomicBlocks';
-import {
-  InsertGalleryButton,
-  InsertGridButton,
-  UploadImageButton,
-} from './components/editor/ToolbarButtons';
-import { customEntityTransform } from './utils/editorTransforms';
+import EditorPanel from './components/editor/EditorPanel';
+import { editorJSToHtml } from './utils/editorTransforms';
 
 const BODY_API_TYPES = new Set(['sport', 'game', 'team', 'person', 'venue']);
 
@@ -47,22 +37,24 @@ function SaveLogPanel({ title, data }) {
 }
 
 function App() {
-  const [editorState, setEditorState] = useState(() => EditorState.createEmpty());
-  const [expanded, setExpanded] = useState(false);
+  const [editorData, setEditorData] = useState(null);
+  const [expanded, setExpanded] = useState(true);
   const [apiType, setApiType] = useState('article');
   const [contentId, setContentId] = useState('content-1001');
-  const [readOnly, setReadOnly] = useState(false);
   const [saveHistory, setSaveHistory] = useState([]);
   const [formikFields, setFormikFields] = useState({
     articleContent: '',
     readTime: 0,
   });
-  const [isUploading, setIsUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState('idle');
   const [uploadTrace, setUploadTrace] = useState([]);
-  const [gridSelection, setGridSelection] = useState({ rows: 1, columns: 1 });
 
+  const editorSaveRef = useRef(null);
   const blobUrlsRef = useRef([]);
+
+  const registerEditorSave = useCallback((saveFn) => {
+    editorSaveRef.current = saveFn;
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -71,39 +63,28 @@ function App() {
     };
   }, []);
 
-  const editorHtml = useMemo(
-    () =>
-      draftToHtml(convertToRaw(editorState.getCurrentContent()), undefined, false, customEntityTransform),
-    [editorState]
-  );
-  const normalizedText = extractPlainText(editorHtml);
-  const readTime = computeReadTime(editorHtml);
-
   const saveData = (id, type, key, payload) => {
-    const saveEntry = {
-      timestamp: new Date().toISOString(),
-      contentId: id,
-      apiType: type,
-      contentKey: key,
-      payload,
-    };
-
-    setSaveHistory((currentHistory) => [saveEntry, ...currentHistory]);
+    setSaveHistory((currentHistory) => [
+      {
+        timestamp: new Date().toISOString(),
+        contentId: id,
+        apiType: type,
+        contentKey: key,
+        payload,
+      },
+      ...currentHistory,
+    ]);
   };
 
   const appendTrace = (message) => {
     setUploadTrace((current) => [
-      {
-        at: new Date().toISOString(),
-        message,
-      },
+      { at: new Date().toISOString(), message },
       ...current,
     ]);
   };
 
-  const uploadFilesWithPreview = async (files) => {
+  const uploadFilesWithPreview = useCallback(async (files) => {
     const urls = [];
-    setIsUploading(true);
     setUploadStatus('in-progress');
     appendTrace(`Starting upload for ${files.length} file(s)`);
 
@@ -117,122 +98,22 @@ function App() {
         blobUrlsRef.current.push(blobUrl);
         urls.push(blobUrl);
         appendTrace(`${file.name}: uploaded -> ${cdnUrl}`);
-        appendTrace(`${file.name}: local-preview-url-created`);
       }
-
       setUploadStatus('success');
-      appendTrace(`Upload success for ${files.length} file(s)`);
       return urls;
     } catch (error) {
       setUploadStatus('failed');
       appendTrace(`Upload failed: ${error.message}`);
       return [];
-    } finally {
-      setIsUploading(false);
     }
-  };
-
-  const insertAtomicBlock = useCallback((entityType, entityData) => {
-    setEditorState((currentState) => {
-      const currentContent = currentState.getCurrentContent();
-      const contentWithEntity = currentContent.createEntity(entityType, 'IMMUTABLE', entityData);
-      const entityKey = contentWithEntity.getLastCreatedEntityKey();
-      const nextState = EditorState.set(currentState, { currentContent: contentWithEntity });
-      return AtomicBlockUtils.insertAtomicBlock(nextState, entityKey, ' ');
-    });
   }, []);
 
-  const insertImageIntoEditor = (src) => {
-    insertAtomicBlock('IMAGE', { src });
-  };
-
-  const insertGalleryBlock = (urls) => {
-    insertAtomicBlock('GALLERY', { urls });
-  };
-
-  const insertGridBlock = (urls, columns) => {
-    insertAtomicBlock('GRID', { urls, columns });
-  };
-
-  const handleImageFiles = async (files) => {
-    const file = files[0];
-    if (!file) {
-      return;
-    }
-
-    const [url] = await uploadFilesWithPreview([file]);
-    if (url) {
-      insertImageIntoEditor(url);
-    }
-  };
-
-  const handleGalleryFiles = async (files) => {
-    if (!files.length) {
-      return;
-    }
-
-    const urls = await uploadFilesWithPreview(files);
-    if (!urls.length) {
-      return;
-    }
-
-    insertGalleryBlock(urls);
-  };
-
-  const handleGridFiles = async (files) => {
-    if (!files.length) {
-      return;
-    }
-
-    const urls = await uploadFilesWithPreview(files);
-    if (!urls.length) {
-      return;
-    }
-
-    const totalCells = gridSelection.rows * gridSelection.columns;
-    const gridUrls = urls.slice(0, totalCells);
-    insertGridBlock(gridUrls, gridSelection.columns);
-  };
-
-  const blockRendererFn = (contentBlock) => {
-    if (contentBlock.getType() !== 'atomic') {
-      return null;
-    }
-
-    const entityKey = contentBlock.getEntityAt(0);
-    if (!entityKey) {
-      return null;
-    }
-
-    const entity = editorState.getCurrentContent().getEntity(entityKey);
-    const type = entity.getType();
-
-    if (type === 'IMAGE') {
-      return {
-        component: ImageBlock,
-        editable: false,
-        props: {},
-      };
-    }
-
-    if (type === 'GALLERY') {
-      return {
-        component: GalleryBlock,
-        editable: false,
-        props: {},
-      };
-    }
-
-    if (type === 'GRID') {
-      return {
-        component: GridBlock,
-        editable: false,
-        props: {},
-      };
-    }
-
-    return null;
-  };
+  const editorHtml = useMemo(
+    () => editorJSToHtml(editorData || { blocks: [] }),
+    [editorData]
+  );
+  const normalizedText = extractPlainText(editorHtml);
+  const readTime = computeReadTime(editorHtml);
 
   const editorDataSave = (html) => {
     const lowerApiType = apiType.toLowerCase();
@@ -253,7 +134,6 @@ function App() {
         readTime: computeReadTime(html),
         isPublish: false,
       };
-
       setFormikFields({
         articleContent: contentBodyData.articleContent,
         readTime: contentBodyData.readTime,
@@ -262,7 +142,12 @@ function App() {
     }
   };
 
-  const toolbarDisabled = readOnly || isUploading;
+  const handleSaveContent = async () => {
+    const data = await editorSaveRef.current?.();
+    if (data) {
+      editorDataSave(editorJSToHtml(data));
+    }
+  };
 
   return (
     <div className="App">
@@ -290,24 +175,13 @@ function App() {
           <option value="person">person</option>
           <option value="venue">venue</option>
         </select>
-
-        <label htmlFor="readonly-toggle" className="checkbox">
-          <input
-            id="readonly-toggle"
-            type="checkbox"
-            checked={readOnly}
-            onChange={(event) => setReadOnly(event.target.checked)}
-          />
-          Read only
-        </label>
       </div>
 
       <section className="accordion">
         <button
           type="button"
           className="accordionHeader"
-          onClick={() => setExpanded((currentExpanded) => !currentExpanded)}
-          disabled={readOnly}
+          onClick={() => setExpanded((current) => !current)}
           aria-expanded={expanded}
         >
           EDITOR
@@ -315,34 +189,12 @@ function App() {
         </button>
         {expanded && (
           <div className="accordionBody">
-            <Editor
-              readOnly={readOnly}
-              editorState={editorState}
-              onEditorStateChange={setEditorState}
-              wrapperClassName="demo-wrapper"
-              editorClassName="demo-editor"
-              blockRendererFn={blockRendererFn}
-              toolbarCustomButtons={[
-                <UploadImageButton
-                  key="upload-image"
-                  disabled={toolbarDisabled}
-                  onSelectFiles={handleImageFiles}
-                />,
-                <InsertGalleryButton
-                  key="insert-gallery"
-                  disabled={toolbarDisabled}
-                  onSelectFiles={handleGalleryFiles}
-                />,
-                <InsertGridButton
-                  key="insert-grid"
-                  disabled={toolbarDisabled}
-                  gridSelection={gridSelection}
-                  setGridSelection={setGridSelection}
-                  onSelectFiles={handleGridFiles}
-                />,
-              ]}
+            <EditorPanel
+              onChange={setEditorData}
+              onUpload={uploadFilesWithPreview}
+              registerSave={registerEditorSave}
             />
-            <button type="button" className="saveButton" onClick={() => editorDataSave(editorHtml)}>
+            <button type="button" className="saveButton" onClick={handleSaveContent}>
               Save Content
             </button>
           </div>

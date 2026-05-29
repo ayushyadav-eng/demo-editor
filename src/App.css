@@ -44,13 +44,13 @@
   border: 1px solid #d5d8de;
   border-radius: 8px;
   margin-bottom: 16px;
+  overflow: hidden;
 }
 
 .accordionHeader {
   width: 100%;
   height: 56px;
   border: 0;
-  border-radius: 8px 8px 0 0;
   padding: 0 16px;
   background: #f8f9fa;
   color: #6f7276;
@@ -62,27 +62,243 @@
   cursor: pointer;
 }
 
-.accordionHeader:disabled {
-  cursor: not-allowed;
-  opacity: 0.7;
-}
-
 .accordionBody {
-  padding: 16px;
+  padding: 0;
+  background: #fff;
 }
 
 .hiddenInput {
   display: none;
 }
 
-.demo-wrapper {
-  border: 1px solid #d5d8de;
-  border-radius: 8px;
+/* RTE shell — toolbar + Editor.js blocks (screenshot-style layout) */
+.rte-shell {
+  border-top: 1px solid #e8e8e8;
+  background: #fff;
 }
 
-.demo-editor {
-  min-height: 220px;
+.rte-toolbar,
+.rdw-editor-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 10px;
+  margin: 0;
+  border-bottom: 1px solid #e0e3e8;
+  background: #fff;
+}
+
+.rte-toolbar__divider {
+  width: 1px;
+  height: 24px;
+  margin: 0 6px;
+  background: #e0e3e8;
+  flex-shrink: 0;
+}
+
+.rte-toolbar__group {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+}
+
+.rdw-option-wrapper {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 30px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  padding: 0 8px;
+  font-size: 14px;
+  color: #333;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.rdw-option-wrapper:hover:not(:disabled) {
+  background: #f1f1f1;
+  border-color: #e0e3e8;
+}
+
+.rdw-option-wrapper:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.rte-toolbar__text-btn {
+  min-width: auto;
   padding: 0 10px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.rdw-block-type-wrapper {
+  margin-right: 4px;
+}
+
+.rte-block-style,
+.rdw-dropdown-selectedtext {
+  height: 30px;
+  min-width: 120px;
+  border: 1px solid #c3c8cf;
+  border-radius: 4px;
+  background: #fff;
+  padding: 0 8px;
+  font-size: 13px;
+  color: #333;
+  cursor: pointer;
+}
+
+.rte-color {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  cursor: pointer;
+}
+
+.rte-color input[type='color'] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+}
+
+.rte-color__label {
+  font-weight: 700;
+  font-size: 15px;
+  pointer-events: none;
+}
+
+.rte-color__label--highlight {
+  background: linear-gradient(to bottom, #333 55%, #ffeb3b 55%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.rte-toolbar__loading {
+  margin-left: 8px;
+  font-size: 12px;
+  color: #6f7276;
+}
+
+.rdw-custom-toolbar-btn {
+  display: inline-flex;
+  align-items: center;
+}
+
+.rdw-insert-grid-wrapper {
+  position: relative;
+}
+
+.rdw-insert-grid-popover {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 20;
+  margin-top: 6px;
+  border: 1px solid #e0e3e8;
+  border-radius: 8px;
+  padding: 10px;
+  background: #fff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  min-width: 260px;
+}
+
+.rdw-insert-grid-popover span,
+.rdw-insert-grid-popover p {
+  font-size: 13px;
+  margin: 0 0 6px;
+}
+
+.rdw-insert-grid-popover .gridCells {
+  display: grid;
+  grid-template-columns: repeat(10, 20px);
+  gap: 4px;
+}
+
+.rdw-insert-grid-popover .gridCell {
+  width: 20px;
+  height: 20px;
+  border: 1px solid #bfc5cd;
+  border-radius: 2px;
+  background: #fff;
+  cursor: pointer;
+  padding: 0;
+}
+
+.rdw-insert-grid-popover .gridCell.active {
+  background: #1976d2;
+  border-color: #1976d2;
+}
+
+/* Editor.js content — all blocks visible, no floating + toolbox */
+.demo-editor {
+  min-height: 280px;
+  padding: 12px 16px 24px;
+  background: #fff;
+}
+
+.demo-editor:focus-within {
+  box-shadow: inset 0 0 0 2px #b3d4fc;
+}
+
+.demo-editor .codex-editor {
+  width: 100%;
+}
+
+.demo-editor .codex-editor__redactor {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* Paragraph tool uses data-placeholder-active (see @editorjs/paragraph) */
+.demo-editor .ce-paragraph[data-placeholder-active]:empty::before,
+.demo-editor .ce-block:only-of-type .ce-paragraph[data-placeholder-active][data-empty='true']::before {
+  color: #9aa0a6;
+  opacity: 1;
+}
+
+.demo-editor .ce-header[data-placeholder]:empty::before {
+  color: #9aa0a6;
+  opacity: 1;
+}
+
+.demo-editor [contenteditable='true'] {
+  cursor: text;
+  outline: none;
+}
+
+.demo-editor.codex-editor--narrow,
+.demo-editor .ce-block__content {
+  pointer-events: auto;
+}
+
+.demo-editor .ce-block__content {
+  max-width: 100%;
+  margin: 0;
+}
+
+.demo-editor .ce-block {
+  padding: 6px 0;
+}
+
+.demo-editor .ce-toolbar,
+.demo-editor .ce-toolbox,
+.demo-editor .ce-inline-toolbar,
+.demo-editor .ce-settings,
+.demo-editor .ce-block__actions {
+  display: none !important;
 }
 
 .demo-editor .gallery {
@@ -114,73 +330,15 @@
   display: block;
 }
 
-.rdw-custom-toolbar-btn {
-  display: inline-block;
-  margin: 0 4px;
-}
-
-.rdw-custom-toolbar-btn .rdw-option-wrapper {
-  height: 30px;
-  border: 1px solid #c3c8cf;
-  border-radius: 4px;
-  background: #fff;
-  padding: 0 10px;
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.rdw-custom-toolbar-btn .rdw-option-wrapper:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.rdw-insert-grid-wrapper {
-  position: relative;
-}
-
-.rdw-insert-grid-popover {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  z-index: 10;
-  margin-top: 6px;
-  border: 1px solid #e0e3e8;
-  border-radius: 8px;
-  padding: 10px;
-  background: #fff;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
-  min-width: 260px;
-}
-
-.rdw-insert-grid-popover span,
-.rdw-insert-grid-popover p {
-  font-size: 13px;
-}
-
-.rdw-insert-grid-popover .gridCells {
-  margin-top: 8px;
-  display: grid;
-  grid-template-columns: repeat(10, 20px);
-  gap: 4px;
-}
-
-.rdw-insert-grid-popover .gridCell {
-  width: 20px;
-  height: 20px;
-  border: 1px solid #bfc5cd;
-  border-radius: 2px;
-  background: #fff;
-  cursor: pointer;
-  padding: 0;
-}
-
-.rdw-insert-grid-popover .gridCell.active {
-  background: #1976d2;
-  border-color: #1976d2;
+.demo-editor .ce-paragraph,
+.demo-editor .ce-header,
+.demo-editor .cdx-list {
+  font-size: 15px;
+  line-height: 1.5;
 }
 
 .saveButton {
-  margin-top: 14px;
+  margin: 14px 16px 16px;
   height: 36px;
   border: 0;
   border-radius: 6px;
@@ -188,6 +346,10 @@
   color: #fff;
   padding: 0 14px;
   cursor: pointer;
+}
+
+.saveButton:hover {
+  background: #1565c0;
 }
 
 .panel {
